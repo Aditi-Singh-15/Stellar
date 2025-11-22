@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -6,8 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Logo } from "@/components/logo";
 import { BookOpen, Globe, Sparkles, Users } from "lucide-react";
+import { useAuth } from "@/components/auth-provider";
 
 export default function Home() {
+  const { setGuestMode } = useAuth();
+
   const features = [
     {
       icon: <Globe className="w-8 h-8 text-purple-600" />,
@@ -69,6 +73,14 @@ export default function Home() {
             <p className="max-w-3xl mx-auto text-lg text-muted-foreground">
               Empowering teachers in under-resourced schools with AI-driven tools for creating personalized content, assessing students, and planning lessons — all in your local language.
             </p>
+            <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+                <Button asChild size="lg" className="bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                    <Link href="/signup">Get Started for Free</Link>
+                </Button>
+                <Button size="lg" variant="outline" onClick={() => setGuestMode(true)}>
+                    Try as Guest
+                </Button>
+            </div>
           </motion.div>
         </section>
         

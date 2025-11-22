@@ -44,30 +44,38 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
   const router = useRouter();
 
   const setGuestMode = (isGuest: boolean) => {
+    setIsGuest(isGuest);
     if (isGuest) {
       setUser(guestUser);
       router.push('/dashboard');
     } else {
+      // This will trigger the auth state change to sign out the real user if they were logged in
+      auth?.signOut(); 
       setUser(null);
       router.push('/login');
     }
   };
 
   useEffect(() => {
+    // If guest mode is active, don't do anything else.
+    if (isGuest) {
+        setLoading(false);
+        return;
+    }
+
     // If firebase is not configured, don't attempt to authenticate.
-    // The login/signup pages will show a warning and offer guest mode.
     if (!isFirebaseConfigured) {
       setLoading(false);
       return;
     }
 
     const unsubscribe = onAuthStateChanged(auth, (authUser) => {
-      // If a guest session is active, don't replace it with a null authUser
-      // This can happen on initial load before firebase auth state is resolved.
-      if (user?.uid === 'demo-user' && !authUser) {
+      // If a guest session is active, don't replace it.
+      if (isGuest) {
           setLoading(false);
           return;
       }
@@ -77,8 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => unsubscribe();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isGuest]);
 
 
   if (loading) {
