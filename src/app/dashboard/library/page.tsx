@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/components/auth-provider';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, Timestamp, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Folder, Search, FileImage, Layers3, BookText, AlertTriangle, Library as LibraryIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { errorEmitter } from '@/lib/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/lib/errors';
 
 type Asset = {
     id: string;
@@ -43,29 +45,45 @@ export default function LibraryPage() {
     const [selectedFolderId, setSelectedFolderId] = useState<'all' | 'uncategorized' | string>('all');
 
     useEffect(() => {
-        if (!user || user.uid === 'demo-user') {
+        if (!user || user.uid === 'demo-user' || !db) {
             setIsLoading(false);
             return;
         }
 
+        let unsubscribeFolders: Unsubscribe | undefined;
+
         // --- Fetch Folders (with onSnapshot for real-time updates) ---
-        // Query without ordering by name to avoid needing a composite index
-        const folderQuery = query(collection(db, "folders"), where("userId", "==", user.uid));
-        const unsubscribeFolders = onSnapshot(folderQuery, (snapshot) => {
-            const userFolders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Folder));
-            // Sort folders on the client-side
-            userFolders.sort((a, b) => a.name.localeCompare(b.name));
-            setFolders(userFolders);
-            setIsLoading(false); // Set loading to false after first fetch
-        }, (error) => {
-            console.error("Error fetching folders:", error);
-            toast({
-                variant: "destructive",
-                title: "Failed to load folders",
-                description: "Could not retrieve your saved folders. Please try again later."
-            });
+        try {
+            const folderQuery = query(collection(db, "folders"), where("userId", "==", user.uid));
+            unsubscribeFolders = onSnapshot(folderQuery, 
+                (snapshot) => {
+                    const userFolders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Folder));
+                    userFolders.sort((a, b) => a.name.localeCompare(b.name));
+                    setFolders(userFolders);
+                    setIsLoading(false);
+                },
+                (error) => {
+                    // This is where we handle security rule errors for the listener
+                    const permissionError = new FirestorePermissionError({
+                        path: collection(db, 'folders').path,
+                        operation: 'list',
+                    } satisfies SecurityRuleContext);
+                    errorEmitter.emit('permission-error', permissionError);
+
+                    console.error("Error fetching folders:", error);
+                    toast({
+                        variant: "destructive",
+                        title: "Failed to load folders",
+                        description: "You may not have permission to view this content."
+                    });
+                    setIsLoading(false);
+                }
+            );
+        } catch (e) {
+            console.error("Failed to set up folder listener:", e);
             setIsLoading(false);
-        });
+        }
+
 
         // --- Fetch Assets ---
         const fetchAssets = async () => {
@@ -94,7 +112,14 @@ export default function LibraryPage() {
                 });
 
                 setAssets(userDiagrams);
-            } catch (error) {
+            } catch (error: any) {
+                 if (error.code === 'permission-denied' || error.code === 'failed-precondition') {
+                    const permissionError = new FirestorePermissionError({
+                        path: collection(db, 'diagrams').path,
+                        operation: 'list',
+                    } satisfies SecurityRuleContext);
+                    errorEmitter.emit('permission-error', permissionError);
+                 }
                  console.error("Error fetching library assets:", error);
                 toast({
                     variant: "destructive",
@@ -107,7 +132,11 @@ export default function LibraryPage() {
         fetchAssets();
         
         // Cleanup snapshot listener on unmount
-        return () => unsubscribeFolders();
+        return () => {
+            if (unsubscribeFolders) {
+                unsubscribeFolders();
+            }
+        };
 
     }, [user, toast]);
 
