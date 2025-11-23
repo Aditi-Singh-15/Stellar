@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { generateDiagram, type GenerateDiagramInput } from "@/ai/flows/diagram-generator";
+import { generateDiagram, type DiagramInput } from "@/ai/flows/diagram-generator";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -35,9 +35,10 @@ export default function DiagramPage() {
     setCurrentTopic(values.topic);
 
     try {
-      const input: GenerateDiagramInput = { topic: values.topic };
-      const result = await generateDiagram(input);
-      setDiagramUrl(result.diagramDataUri);
+    const input: DiagramInput = { topic: values.topic };
+    const result = await generateDiagram(input);
+    // the flow returns { imageUrl }
+    setDiagramUrl((result as any).imageUrl ?? (result as any).diagramDataUri ?? null);
       toast({ title: "Diagram generated successfully!" });
     } catch (error: any) {
       toast({
