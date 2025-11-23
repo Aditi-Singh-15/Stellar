@@ -62,6 +62,7 @@ const navItems = [
   { href: "/dashboard/scanner", icon: ScanLine, label: "Textbook Scanner" },
   { href: "/dashboard/diagram", icon: LayoutTemplate, label: "Diagram Generator" },
   { href: "/dashboard/video", icon: Video, label: "Visual Story" },
+  { href: "/dashboard/ai-tutor", icon: Video, label: "AI Tutor" },
   { href: "/dashboard/reading", icon: Mic, label: "Reading Assessment" },
   { href: "/dashboard/planner", icon: BookOpen, label: "Lesson Planner" },
   { href: "/dashboard/homework", icon: ClipboardList, label: "Homework Generator" },
